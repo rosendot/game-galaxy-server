@@ -17,6 +17,8 @@ app.use(cors());
 
 const PORT = process.env.PORT || 3000;
 
+console.log("Starting Game Galaxy Server...");
+
 // Health check endpoint for Render
 app.get("/", (req, res) => {
   res.send("Game Galaxy Server Running");
@@ -27,11 +29,14 @@ let waitingPlayer = null;
 const gameRooms = new Map();
 
 io.on("connection", (socket) => {
-  console.log("Player connected:", socket.id);
+  console.log("✅ NEW CONNECTION - Player connected:", socket.id);
+  console.log("Total connections:", io.engine.clientsCount);
 
   // Handle matchmaking
   socket.on("find_match", () => {
+    console.log("🎮 FIND_MATCH received from:", socket.id);
     if (waitingPlayer && waitingPlayer.id !== socket.id) {
+      console.log("🎲 Matching players:", waitingPlayer.id, "vs", socket.id);
       // Create a game room
       const roomId = `room_${Date.now()}`;
       const player1 = waitingPlayer;
@@ -71,12 +76,12 @@ io.on("connection", (socket) => {
         opponent: player1.id
       });
 
-      console.log(`Match created: ${roomId}`);
+      console.log(`✅ Match created: ${roomId}`);
       waitingPlayer = null;
     } else {
       waitingPlayer = socket;
       socket.emit("waiting", { message: "Waiting for opponent..." });
-      console.log("Player waiting:", socket.id);
+      console.log("⏳ Player waiting:", socket.id);
     }
   });
 
@@ -151,5 +156,7 @@ io.on("connection", (socket) => {
 });
 
 httpServer.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
+  console.log("✅ Server running on port " + PORT);
+  console.log("✅ Socket.IO server ready");
+  console.log("Waiting for connections...");
 });
