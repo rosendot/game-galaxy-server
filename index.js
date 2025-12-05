@@ -27,6 +27,7 @@ app.get("/", (req, res) => {
 // Matchmaking queue and game rooms
 let waitingPlayer = null;
 const gameRooms = new Map();
+const rematchRequests = new Map();
 
 io.on("connection", (socket) => {
   console.log("✅ NEW CONNECTION - Player connected:", socket.id);
@@ -127,15 +128,69 @@ io.on("connection", (socket) => {
         winner: winner,
         winnerSocketId: gameState.players[winner]
       });
-      gameRooms.delete(roomId);
       console.log(`Game over in ${roomId}: ${winner} wins`);
     } else if (draw) {
       io.to(roomId).emit("game_over", {
         winner: null,
         draw: true
       });
-      gameRooms.delete(roomId);
       console.log(`Game over in ${roomId}: Draw`);
+    }
+  });
+
+  // Handle rematch requests
+  socket.on("request_rematch", ({ roomId }) => {
+    console.log(`Rematch requested in ${roomId} by ${socket.id}`);
+
+    // Get opponent socket ID
+    const room = io.sockets.adapter.rooms.get(roomId);
+    if (!room || room.size !== 2) {
+      console.log("Room not valid for rematch");
+      return;
+    }
+
+    const roomSockets = Array.from(room);
+    const opponentId = roomSockets.find(id => id !== socket.id);
+
+    if (!opponentId) {
+      console.log("Opponent not found");
+      return;
+    }
+
+    // Check if opponent already requested rematch
+    const rematchKey = `${roomId}_${opponentId}`;
+    if (rematchRequests.has(rematchKey)) {
+      // Both players want rematch - start new game
+      console.log(`Both players agreed to rematch in ${roomId}`);
+      rematchRequests.delete(rematchKey);
+      rematchRequests.delete(`${roomId}_${socket.id}`);
+
+      // Initialize new game state
+      const gameState = {
+        board: initializeBoard(),
+        players: {
+          X: roomSockets[0],
+          O: roomSockets[1]
+        },
+        currentTurn: "X",
+        roomId: roomId
+      };
+
+      gameRooms.set(roomId, gameState);
+
+      // Notify both players with their symbols
+      io.to(roomSockets[0]).emit("rematch_accepted", { symbol: "X" });
+      io.to(roomSockets[1]).emit("rematch_accepted", { symbol: "O" });
+
+      io.to(roomId).emit("update_board", {
+        board: gameState.board,
+        currentTurn: gameState.currentTurn
+      });
+    } else {
+      // First player to request - notify opponent
+      rematchRequests.set(`${roomId}_${socket.id}`, true);
+      io.to(opponentId).emit("rematch_requested");
+      console.log(`Rematch request sent to ${opponentId}`);
     }
   });
 
@@ -153,6 +208,9 @@ io.on("connection", (socket) => {
       const roomId = socket.roomId;
       io.to(roomId).emit("opponent_disconnected");
       gameRooms.delete(roomId);
+
+      // Clean up rematch requests
+      rematchRequests.delete(`${roomId}_${socket.id}`);
     }
   });
 });
