@@ -111,6 +111,11 @@ io.on("connection", (socket) => {
     const winner = checkWinner(gameState.board);
     const draw = checkDraw(gameState.board);
 
+    // Switch turns BEFORE emitting (if game continues)
+    if (!winner && !draw) {
+      gameState.currentTurn = gameState.currentTurn === "X" ? "O" : "X";
+    }
+
     // Update board for both players
     io.to(roomId).emit("update_board", {
       board: gameState.board,
@@ -131,9 +136,6 @@ io.on("connection", (socket) => {
       });
       gameRooms.delete(roomId);
       console.log(`Game over in ${roomId}: Draw`);
-    } else {
-      // Switch turns
-      gameState.currentTurn = gameState.currentTurn === "X" ? "O" : "X";
     }
   });
 
