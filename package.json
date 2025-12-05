@@ -1,6 +1,7 @@
 {
   "name": "game-galaxy-server",
   "version": "1.0.0",
+  "type": "module",
   "description": "Backend server for Game Galaxy Chrome extension",
   "main": "index.js",
   "scripts": {
@@ -8,5 +9,8 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
 }
